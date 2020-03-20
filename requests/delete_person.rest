@@ -1,1 +1,1 @@
-DELETE http://localhost:3001/api/persons/NA
+DELETE https://phonebook-app-server.herokuapp.com/api/persons/NA
