@@ -9,8 +9,9 @@ morgan.token('post', (request, response) => JSON.stringify(request.body));
 
 // Middlewares
 app.use(express.json());
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :post'));
 app.use(cors());
+app.use(express.static('build'));
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms :post'));
 
 let persons = [
     {
