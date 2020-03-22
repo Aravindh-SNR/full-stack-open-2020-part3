@@ -4,5 +4,9 @@
 # REST Client queries
 /requests
 
-# Configuration
-.env
+# Environment variables
+/.env
+
+# ESlint configuration
+/.eslintrc.js
+/.eslintignore
