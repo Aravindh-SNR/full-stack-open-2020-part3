@@ -1,6 +1,8 @@
 const express = require('express');
-const morgan = require('morgan');
 const cors = require('cors');
+const morgan = require('morgan');
+require('dotenv').config();
+const Person = require('./models/person');
 
 const app = express();
 
@@ -8,98 +10,89 @@ const app = express();
 morgan.token('post', (request, response) => JSON.stringify(request.body));
 
 // Middlewares
-app.use(express.json());
-app.use(cors());
 app.use(express.static('build'));
+app.use(cors());
+app.use(express.json());
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :post'));
 
-let persons = [
-    {
-        name: "Arto Hellas",
-        number: "040-123456",
-        id: 1
-    },
-    {
-        name: "Ada Lovelace",
-        number: "39-44-5323523",
-        id: 2
-    },
-    {
-        name: "Dan Abramov",
-        number: "12-43-234345",
-        id: 3
-    },
-    {
-        name: "Mary Poppendieck",
-        number: "39-23-6423122",
-        id: 4
-    },
-    {
-        name: "Kent C. Dodds",
-        number: "0-123465789",
-        id: 5
-    },
-    {
-        name: "Martin Fowler",
-        number: "123-456-789",
-        id: 6
-    }
-];
-
-// Function to generate id for new persons
-const generateId = () => Math.floor(Math.random() * 1000);
-
-// Get all persons
-app.get('/api/persons', (request, response) => {
-    response.json(persons);
+// Get all persons in phonebook
+app.get('/api/persons', (request, response, next) => {
+    Person.find()
+    .then(persons => response.json(persons))
+    .catch(next);
 });
 
-// Get number of persons and time of request
-app.get('/info', (request, response) => {
-    response.send(`
-        <p>Phonebook has ${persons.length} contacts at the moment.</p>
-        <p>${new Date()}</p>
-    `);
+// Get number of persons in phonebook and time of request
+app.get('/info', (request, response, next) => {
+    Person.find()
+    .then(persons => {
+        response.send(`
+            <p>Phonebook has ${persons.length} contacts at the moment.</p>
+            <p>${new Date()}</p>
+        `);
+    })
+    .catch(next);
 });
 
-// Get one person
-app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    const person = persons.find(person => person.id === id);
-
-    person ? response.json(person) : response.status(404).json({error: `Person with given id does not exist.`});
+// Get one person from phonebook
+app.get('/api/persons/:id', (request, response, next) => {
+    Person.findById(request.params.id)
+    .then(person => {
+        person ? 
+        response.json(person) : 
+        response.status(404).json({error: 'Person with given id does not exist'});
+    })
+    .catch(next);
 });
 
-// Delete a person
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    persons = persons.filter(person => person.id !== id);
-
-    response.status(204).end();
+// Delete a person from phonebook
+app.delete('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndDelete(request.params.id)
+    .then(() => response.status(204).end())
+    .catch(next);
 });
 
-// Add a person
-app.post('/api/persons', (request, response) => {
+// Add a person to phonebook
+app.post('/api/persons', (request, response, next) => {
     const {name, number} = request.body;
     
-    if (!name || !number) {
-        return response.status(400).json({error: 'Name or Number missing.'});
-    }
+    const person = new Person({name, number});
 
-    if (persons.some(person => person.name === name)) {
-        return response.status(400).json({error: 'Given name already exists in the phonebook.'});
-    }
-
-    const newPerson = {
-        id: generateId(),
-        name,
-        number
-    };
-    persons = persons.concat(newPerson);
-    response.json(newPerson);
+    person.save()
+    .then(newPerson => response.json(newPerson))
+    .catch(next);
 });
 
-const PORT = process.env.PORT || 3001;
+// Update number of an already existing person
+app.put('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndUpdate(request.params.id, {number: request.body.number}, {new: true, runValidators: true})
+    .then(updatedPerson => response.json(updatedPerson))
+    .catch(next);
+});
+
+// Middleware to handle unknown endpoints
+const handleUnknownEndpoint = (request, response) => {
+    response.status(404).json({error: 'Unknown endpoint'});
+};
+
+app.use(handleUnknownEndpoint);
+
+// Middleware to handle errors
+const handleErrors = (error, request, response, next) => {
+    console.log(error.message);
+
+    if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        return response.status(400).json({error: 'Incorrect id format'});
+    } else if (error.name === 'ValidationError') {
+        return response.status(400).json({error: error.message});
+    }
+
+    next(error);
+};
+
+app.use(handleErrors);
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
     console.log(`Listening to requests on port ${PORT}`);
 });

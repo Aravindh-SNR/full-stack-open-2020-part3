@@ -3,3 +3,6 @@
 
 # REST Client queries
 /requests
+
+# Configuration
+.env
